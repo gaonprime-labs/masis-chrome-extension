@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "masis Image Extension",
+  "version": "2.2.0",
+  "description": "채팅 응답에서 다중 인물을 파싱하여 각 인물별로 매칭 이미지를 표시합니다 (NoahChat/LunaTalk 지원)",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "identity",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://ark.gaonprime.com/*",
+    "https://openrouter.ai/*"
+  ],
+  "oauth2": {
+    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/main.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "platforms/handlers/*.js",
+        "content/*.js",
+        "injected-script.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

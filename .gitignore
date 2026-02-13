@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.crx
+*.pem
+*.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Python
+*.egg-info/
+.eggs/
+
+# CLIP server
+clip-server/venv/
+clip-server/logs/
+clip-server/*.onnx

@@ -1,0 +1,25 @@
+# CLIP Embedding Server Dependencies
+
+# Deep Learning
+torch==2.1.0
+torchvision==0.16.0
+
+# Transformers & CLIP
+transformers==4.35.0
+
+# Image Processing
+pillow==10.1.0
+
+# Numpy (PyTorch 2.1.0 호환성)
+numpy<2.0
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# HTTP Client
+requests==2.31.0
+
+# Optional: File upload support
+python-multipart==0.0.6

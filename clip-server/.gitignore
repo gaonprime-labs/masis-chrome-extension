@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Model cache
+.cache/
+model_cache/
+transformers_cache/
+torch_cache/
+
+# Logs
+logs/
+*.log
+pip-log.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+
+# PM2
+.pm2/
+pids/
+*.pid
