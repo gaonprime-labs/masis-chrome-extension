@@ -131,9 +131,18 @@ def create_text_embedding(text: str) -> List[float]:
     inputs = processor(text=[text], return_tensors="pt", padding=True, truncation=True, max_length=77).to(device)
 
     with torch.no_grad():
-        text_features = model.get_text_features(**inputs)
+        # 전체 모델 출력에서 text_embeds 추출
+        outputs = model.get_text_features(**inputs)
+        # outputs가 텐서인지 객체인지 확인
+        if hasattr(outputs, 'text_embeds'):
+            text_features = outputs.text_embeds
+        elif hasattr(outputs, 'pooler_output'):
+            text_features = outputs.pooler_output
+        else:
+            # 이미 텐서인 경우
+            text_features = outputs
         # L2 정규화
-        text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
+        text_features = torch.nn.functional.normalize(text_features, p=2, dim=-1)
 
     return text_features[0].cpu().numpy().tolist()
 
@@ -146,9 +155,16 @@ def create_image_embedding(image_url: str) -> List[float]:
     inputs = processor(images=image, return_tensors="pt").to(device)
 
     with torch.no_grad():
-        image_features = model.get_image_features(**inputs)
+        outputs = model.get_image_features(**inputs)
+        # outputs가 텐서인지 객체인지 확인
+        if hasattr(outputs, 'image_embeds'):
+            image_features = outputs.image_embeds
+        elif hasattr(outputs, 'pooler_output'):
+            image_features = outputs.pooler_output
+        else:
+            image_features = outputs
         # L2 정규화
-        image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
+        image_features = torch.nn.functional.normalize(image_features, p=2, dim=-1)
 
     return image_features[0].cpu().numpy().tolist()
 
@@ -157,8 +173,14 @@ def create_batch_text_embeddings(texts: List[str]) -> List[List[float]]:
     inputs = processor(text=texts, return_tensors="pt", padding=True, truncation=True, max_length=77).to(device)
 
     with torch.no_grad():
-        text_features = model.get_text_features(**inputs)
-        text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
+        outputs = model.get_text_features(**inputs)
+        if hasattr(outputs, 'text_embeds'):
+            text_features = outputs.text_embeds
+        elif hasattr(outputs, 'pooler_output'):
+            text_features = outputs.pooler_output
+        else:
+            text_features = outputs
+        text_features = torch.nn.functional.normalize(text_features, p=2, dim=-1)
 
     return text_features.cpu().numpy().tolist()
 
@@ -171,8 +193,14 @@ def create_batch_image_embeddings(image_urls: List[str]) -> List[List[float]]:
     inputs = processor(images=images, return_tensors="pt").to(device)
 
     with torch.no_grad():
-        image_features = model.get_image_features(**inputs)
-        image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
+        outputs = model.get_image_features(**inputs)
+        if hasattr(outputs, 'image_embeds'):
+            image_features = outputs.image_embeds
+        elif hasattr(outputs, 'pooler_output'):
+            image_features = outputs.pooler_output
+        else:
+            image_features = outputs
+        image_features = torch.nn.functional.normalize(image_features, p=2, dim=-1)
 
     return image_features.cpu().numpy().tolist()
 
