@@ -15,8 +15,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 ## 기술 스택
 
 - **Extension**: Chrome Manifest V3
-- **CLIP Server**: Python FastAPI + PyTorch
-- **API Server**: masis (Next.js API route) - CLIP 필터링 로직 포함
+- **API Server**: masis (Next.js API route)
 
 ## 프로젝트 구조
 
@@ -26,21 +25,11 @@ This file provides guidance to Claude Code when working with code in this reposi
 ├── background/             # 크롬 확장 백그라운드 스크립트
 ├── content/                # 크롬 확장 컨텐츠 스크립트
 ├── platforms/              # 플랫폼별 핸들러
-├── clip-server/            # CLIP 임베딩 서버 (Python)
 ├── docs/                   # 문서
 ├── manifest.json           # 크롬 확장 매니페스트
 ├── background.js           # 메인 백그라운드 스크립트
 ├── popup.html / popup.js   # 팝업 UI
 └── README.md
-```
-
-## 명령어
-
-### CLIP 서버
-```bash
-cd clip-server
-source venv/bin/activate
-python server.py
 ```
 
 ## 환경변수
@@ -56,3 +45,4 @@ OPENROUTER_API_KEY=    # OpenRouter API 키
 - [ ] 독립적인 package.json 생성
 - [ ] TypeScript 빌드 설정
 - [ ] 테스트 환경 구성
+- [ ] 태그 기반 이미지 매칭 구현
