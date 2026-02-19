@@ -160,16 +160,61 @@ export class LunaTalkPlatform extends ChatPlatform {
    * @override
    * LunaTalk 메시지 텍스트 추출
    * Shadow DOM 내부의 .content 요소에서 텍스트 추출
+   * INFO 블록(<pre> 태그)이 있으면 별도로 추출하여 앞에 배치
    */
   extractMessageText(messageElement) {
     const cbox = messageElement.querySelector('.cbox');
     if (cbox && cbox.shadowRoot) {
       const content = cbox.shadowRoot.querySelector('.content');
       if (content) {
-        return content.textContent?.trim() || '';
+        // INFO 블록 추출 (pre 태그 내용)
+        const infoBlock = this.extractInfoBlock(content);
+
+        // 메시지 텍스트 추출 (pre 태그 제외)
+        const messageText = this.extractMessageWithoutInfo(content);
+
+        // INFO가 있으면 앞에 배치
+        if (infoBlock) {
+          return `[INFO]\n${infoBlock}\n[/INFO]\n\n${messageText}`;
+        }
+
+        return messageText;
       }
     }
     // Fallback
     return messageElement.textContent?.trim() || '';
+  }
+
+  /**
+   * INFO 블록 추출 (<pre> 태그 내용)
+   *
+   * @param {Element} contentElement - .content 요소
+   * @returns {string|null} INFO 블록 텍스트 또는 null
+   * @private
+   */
+  extractInfoBlock(contentElement) {
+    const preElement = contentElement.querySelector('pre');
+    if (preElement) {
+      const codeElement = preElement.querySelector('code');
+      const text = codeElement?.textContent || preElement.textContent;
+      return text?.trim() || null;
+    }
+    return null;
+  }
+
+  /**
+   * INFO 블록을 제외한 메시지 텍스트 추출
+   *
+   * @param {Element} contentElement - .content 요소
+   * @returns {string} 메시지 텍스트
+   * @private
+   */
+  extractMessageWithoutInfo(contentElement) {
+    // content를 복제하여 pre 요소 제거 후 텍스트 추출
+    const clone = contentElement.cloneNode(true);
+    const preElements = clone.querySelectorAll('pre');
+    preElements.forEach((pre) => pre.remove());
+
+    return clone.textContent?.trim() || '';
   }
 }

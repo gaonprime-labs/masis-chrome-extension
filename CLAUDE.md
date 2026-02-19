@@ -16,8 +16,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 - **Extension**: Chrome Manifest V3
 - **CLIP Server**: Python FastAPI + PyTorch
-- **API Server**: (독립 서버로 변환 예정 - 현재 Next.js API route)
-- **CLIP Client**: TypeScript
+- **API Server**: masis (Next.js API route) - CLIP 필터링 로직 포함
 
 ## 프로젝트 구조
 
@@ -28,8 +27,6 @@ This file provides guidance to Claude Code when working with code in this reposi
 ├── content/                # 크롬 확장 컨텐츠 스크립트
 ├── platforms/              # 플랫폼별 핸들러
 ├── clip-server/            # CLIP 임베딩 서버 (Python)
-├── lib/
-│   └── clip/               # CLIP 클라이언트 라이브러리 (TS)
 ├── docs/                   # 문서
 ├── manifest.json           # 크롬 확장 매니페스트
 ├── background.js           # 메인 백그라운드 스크립트
