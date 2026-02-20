@@ -14,6 +14,7 @@
 ## 지원 플랫폼
 
 - NoahChat (noahchat.kr)
+- 루나톡 (lunatalk.co.kr)
 - 추가 플랫폼은 PR 환영!
 
 ## 설치 방법
