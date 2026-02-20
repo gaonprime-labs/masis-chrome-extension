@@ -40,6 +40,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 공유 폴더 목록 로드 (로그인 불필요)
   await loadPublicFolders(projectUrl, config.folderId);
 
+  // 저장된 폴더가 있으면 태그 캐시 확인/업데이트
+  if (config.folderId) {
+    await updateFolderTagsCache(projectUrl, config.folderId);
+  }
+
   // 로그인 상태 확인
   await checkAuthStatus(projectUrl);
 
@@ -51,6 +56,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 로그아웃 버튼
   logoutBtn.addEventListener('click', async () => {
     await handleLogout(projectUrl);
+  });
+
+  // 폴더 선택 변경 시 태그 캐시 강제 업데이트
+  folderIdSelect.addEventListener('change', async () => {
+    const selectedFolderId = folderIdSelect.value;
+    if (selectedFolderId) {
+      // 폴더가 바뀌면 기존 캐시 삭제 후 새로 가져오기
+      await chrome.storage.local.remove(['folderTagsCache']);
+      await updateFolderTagsCache(projectUrl, selectedFolderId);
+    }
   });
 
   // 저장 버튼 클릭
@@ -67,6 +82,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         showStatus('갤러리 폴더를 선택하세요', 'error');
         return;
       }
+    }
+
+    // 폴더 태그 캐시 업데이트 (선택된 폴더가 있으면)
+    if (newConfig.folderId) {
+      await updateFolderTagsCache(projectUrl, newConfig.folderId);
     }
 
     // 저장
@@ -123,7 +143,6 @@ async function loadPublicFolders(projectUrl, selectedFolderId = '') {
       throw new Error('공유 폴더 목록을 불러올 수 없습니다');
     }
   } catch (error) {
-    console.error('[Popup] Failed to load public folders:', error);
     folderIdSelect.innerHTML = '';
     const option = document.createElement('option');
     option.value = '';
@@ -174,7 +193,6 @@ async function checkAuthStatus(projectUrl) {
       authSection.style.display = 'none';
     }
   } catch (error) {
-    console.error('Failed to check auth status:', error);
     loginSection.style.display = 'block';
     authSection.style.display = 'none';
   }
@@ -198,7 +216,6 @@ async function handleLogin(projectUrl) {
       showStatus('로그인이 완료되었습니다', 'success');
     }, 2000);
   } catch (error) {
-    console.error('Login error:', error);
     showStatus('로그인 중 오류가 발생했습니다', 'error');
   }
 }
@@ -221,7 +238,46 @@ async function handleLogout(projectUrl) {
       showStatus('로그아웃되었습니다', 'success');
     }, 2000);
   } catch (error) {
-    console.error('Logout error:', error);
     showStatus('로그아웃 중 오류가 발생했습니다', 'error');
+  }
+}
+
+/**
+ * 선택된 폴더의 태그 캐시 업데이트
+ * chrome.storage.local에 저장하여 unified-select API 호출 시 활용
+ */
+async function updateFolderTagsCache(projectUrl, folderId) {
+  try {
+    // 이미 캐시가 있는지 확인 (같은 폴더 + 유효한 태그가 있을 때만 사용)
+    const cached = await chrome.storage.local.get(['folderTagsCache']);
+    const hasValidCache = cached.folderTagsCache
+      && cached.folderTagsCache.folderId === folderId
+      && cached.folderTagsCache.tags
+      && Object.keys(cached.folderTagsCache.tags).length > 0;
+
+    if (hasValidCache) {
+      return cached.folderTagsCache;
+    }
+
+    const response = await fetch(`${projectUrl}/api/extension/folder-tags?folderId=${folderId}`, {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return null;
+    }
+
+    // 캐시에 저장
+    await chrome.storage.local.set({ folderTagsCache: data });
+
+    return data;
+  } catch (error) {
+    return null;
   }
 }
