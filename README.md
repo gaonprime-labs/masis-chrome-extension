@@ -1,138 +1,112 @@
-# masis Image Extension - Google 로그인 설정 가이드
+# MASIS Image Extension
 
-Extension에서 Google OAuth 로그인을 사용하여 무제한으로 LLM API를 이용할 수 있습니다.
+캐릭터 롤플레이 채팅 사이트에서 대화 상황에 맞는 캐릭터 이미지를 자동으로 표시해주는 Chrome Extension입니다.
 
-## 1. Google OAuth Client ID 발급
+[MASIS](https://ark.gaonprime.com)에서 생성한 AI 캐릭터 이미지를 사용합니다.
 
-### 1.1 Google Cloud Console 접속
-1. [Google Cloud Console](https://console.cloud.google.com/) 접속
-2. 프로젝트 선택 (또는 새 프로젝트 생성)
+## 주요 기능
 
-### 1.2 OAuth 동의 화면 구성
-1. **APIs & Services** → **OAuth consent screen** 이동
-2. User Type: **External** 선택
-3. 필수 정보 입력:
-   - App name: `masis Extension`
-   - User support email: 본인 이메일
-   - Developer contact: 본인 이메일
-4. Scopes: 기본값 유지 (필요시 `email`, `profile`, `openid` 추가)
-5. Test users: 본인 이메일 추가 (개발 중)
+- **자동 이미지 매칭**: 대화 내용을 분석하여 상황에 맞는 이미지 자동 선택
+- **다중 캐릭터 지원**: 여러 캐릭터가 등장하는 대화에서 각각의 이미지 표시
+- **태그 기반 매칭**: Danbooru 스타일 태그로 표정, 포즈, 배경 등 정밀 매칭
+- **NSFW 레벨 자동 감지**: 대화 분위기에 맞는 적절한 이미지 선택
 
-### 1.3 OAuth Client ID 생성
-1. **APIs & Services** → **Credentials** 이동
-2. **+ CREATE CREDENTIALS** → **OAuth client ID** 클릭
-3. Application type: **Web application** 선택
-4. Name: `masis Web Client`
-5. **Authorized redirect URIs** 추가:
-   ```
-   https://ark.gaonprime.com/api/auth/callback/google
-   ```
-6. **CREATE** 클릭
-7. **Client ID** 복사
-8. **Client Secret** 복사
+## 지원 플랫폼
 
-## 2. 프로젝트 환경변수 설정
+- NoahChat (noahchat.kr)
+- 추가 플랫폼은 PR 환영!
 
-### 2.1 `.env.local` 파일 수정
-```env
-# Google OAuth (Web Application)
-AUTH_GOOGLE_ID=123456789-abc.apps.googleusercontent.com
-AUTH_GOOGLE_SECRET=GOCSPX-xxx
+## 설치 방법
 
-# OpenRouter API Key
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
-```
+### 1. Extension 다운로드
 
-### 2.2 서버 재시작
 ```bash
-npm run dev
+git clone https://github.com/gaonprime-labs/masis-chrome-extension.git
 ```
 
-## 3. Extension 설치 및 설정
+또는 [Releases](https://github.com/gaonprime-labs/masis-chrome-extension/releases)에서 ZIP 다운로드
 
-### 3.1 Extension 설치
-1. Chrome → `chrome://extensions/` 이동
-2. **개발자 모드** 활성화
+### 2. Chrome에 설치
+
+1. Chrome에서 `chrome://extensions/` 열기
+2. 우측 상단 **개발자 모드** 활성화
 3. **압축해제된 확장 프로그램을 로드합니다** 클릭
-4. `extension/` 폴더 선택
+4. 다운로드한 폴더 선택
 
-### 3.2 Extension 설정
+### 3. MASIS 설정
+
+1. [MASIS](https://ark.gaonprime.com)에 가입/로그인
+2. 캐릭터 이미지 생성 및 폴더 정리
+   - 부모 폴더 생성 (예: "내 캐릭터들")
+   - 각 캐릭터별 하위 폴더 생성 (폴더 이름 = 캐릭터 이름)
+   - 각 폴더에 캐릭터 이미지 저장
+3. 부모 폴더 **공유 설정** 활성화
+
+### 4. Extension 설정
+
 1. Chrome 툴바에서 Extension 아이콘 클릭
-2. **갤러리 폴더** 선택
+2. **갤러리 폴더** 선택 (공유된 부모 폴더 목록에서)
 3. **저장** 클릭
+4. 지원 사이트에서 채팅 시작!
 
-**참고**: Extension은 `https://ark.gaonprime.com` 서버에 자동으로 연결됩니다.
-
-## 4. 로그인 사용 방법
-
-### 4.1 Google 로그인
-1. Extension popup에서 **🔐 Google 로그인 (무제한 사용)** 버튼 클릭
-2. 새 탭에서 Next.js 로그인 페이지 열림
-3. Google 계정 선택 및 권한 승인
-4. 로그인 완료 후 탭 닫기
-5. Extension popup에 로그인 상태 표시:
-   - 사용자 이름/이메일
-   - 프로필 이미지
-   - 로그아웃 버튼
-
-### 4.2 로그인 혜택
-- **무제한 LLM API 사용** (Rate Limit 없음)
-- 비로그인: 시간당 10회 제한
-
-### 4.3 로그아웃
-Extension popup에서 **로그아웃** 버튼 클릭
-
-## 5. 인증 흐름
+## 폴더 구조 예시
 
 ```
-Extension Popup
-    ↓ [Google 로그인 클릭]
-Next.js 로그인 페이지 (새 탭)
-    ↓ [Google OAuth]
-Google 계정 선택
-    ↓ [권한 승인]
-NextAuth 세션 생성 (쿠키)
-    ↓ [탭 닫기]
-Extension Popup (세션 확인)
-    ↓ [로그인 완료]
-API 호출 시 세션 쿠키 자동 포함
-    ↓ [무제한 사용 ✅]
+내 캐릭터들/          ← 부모 폴더 (공유 설정 필요)
+├── 레이/            ← 캐릭터 폴더 (이름으로 매칭)
+│   ├── smile.png
+│   ├── angry.png
+│   └── ...
+├── 유나/
+│   ├── happy.png
+│   └── ...
+└── 민수/
+    └── ...
 ```
 
-## 6. 트러블슈팅
+## 작동 원리
 
-### 6.1 로그인 버튼이 보이지 않음
-- `https://ark.gaonprime.com` 서버가 정상 작동 중인지 확인
-- Extension 설정에서 **갤러리 폴더** 선택 후 저장
+1. 채팅 사이트에서 새 메시지 감지
+2. LLM이 대화 내용 분석 → 캐릭터 상태 추출 (표정, 포즈 등)
+3. 추출된 태그로 MASIS 이미지 검색
+4. 가장 적합한 이미지를 사이트에 표시
 
-### 6.2 로그인 후에도 Rate Limit 적용됨
-- 브라우저 쿠키 설정 확인 (타사 쿠키 허용)
-- Chrome DevTools → Network → `api/extension/parse` 요청 확인
-- 쿠키 헤더에 `authjs.session-token` 포함 여부 확인
+## 로그인 (선택사항)
 
-### 6.3 "Configuration incomplete" 에러
-- Extension 설정에서 **갤러리 폴더** 선택
-- 저장 버튼 클릭 후 재시도
+Extension에서 Google 로그인 시:
+- **무제한 사용** (로그인 안 하면 시간당 10회 제한)
 
-## 7. 보안 정보
+## 기여하기
 
-### 7.1 API Key 보호
-- ✅ `OPENROUTER_API_KEY`는 서버에만 저장
-- ✅ Extension에서 완전히 제거
-- ✅ 클라이언트에 노출되지 않음
+### 새 플랫폼 추가
 
-### 7.2 Rate Limiting
-| 사용자 유형 | 제한 |
-|------------|------|
-| 로그인 | 무제한 |
-| 비로그인 | 10회/시간 (IP 기반) |
+1. `platforms/` 폴더에 새 플랫폼 파일 추가
+2. `content/content-main.js`에 플랫폼 등록
+3. PR 제출
 
-### 7.3 인증 방식
-- NextAuth v5 (Auth.js) 사용
-- Google OAuth 2.0
-- HttpOnly 쿠키 기반 세션
-- 7일 세션 만료
+### 플랫폼 파일 구조
 
----
+```javascript
+// platforms/example.js
+export default {
+  name: 'example',
+  hostPatterns: ['example.com'],
 
-**문의**: GitHub Issues
+  // 메시지 컨테이너 찾기
+  getMessageContainer() { ... },
+
+  // 이미지 삽입 위치 찾기
+  getImageInsertPoint(message) { ... },
+
+  // 새 메시지 감지
+  observeNewMessages(callback) { ... },
+}
+```
+
+## 라이선스
+
+MIT License
+
+## 관련 프로젝트
+
+- [MASIS](https://ark.gaonprime.com) - AI 캐릭터 이미지 생성기
