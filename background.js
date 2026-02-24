@@ -8,13 +8,17 @@ import { matchCharacterFolders } from './background/folder-matcher.js';
 const parseCache = new LRUCache(100);
 
 /**
- * 프로젝트 URL 상수
- * 오픈소스 배포용 - 항상 프로덕션 서버 사용
+ * 개발 모드 설정
+ * true: localhost:3000 사용
+ * false: 프로덕션 서버 사용
  */
-const PROJECT_URL = 'https://masis.gaonprime.com';
+const DEV_MODE = false;
+
+const PROJECT_URL_DEV = 'http://localhost:3000';
+const PROJECT_URL_PROD = 'https://masis.gaonprime.com';
 
 function getProjectUrl() {
-  return PROJECT_URL;
+  return DEV_MODE ? PROJECT_URL_DEV : PROJECT_URL_PROD;
 }
 
 /**
@@ -41,12 +45,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
- * 통합 API를 사용한 다중 인물 이미지 선택 (NEW - Unified)
+ * 통합 API를 사용한 대사별 이미지 선택 (NEW - Unified)
  *
  * 하드코딩 제로 원칙:
- * - LLM이 대화 전체를 분석하여 상황과 캐릭터를 이해
- * - 각 캐릭터의 모든 이미지를 시맨틱하게 평가
- * - 상황에 가장 적합한 이미지 1장을 선택
+ * - LLM이 대화 전체를 분석하여 각 대사별 캐릭터 상태를 이해
+ * - 대사마다 독립적인 태그를 추출하여 각각에 맞는 이미지 선택
+ * - 같은 캐릭터라도 대사별로 다른 이미지 선택 가능
+ *
+ * 응답 형식:
+ * - dialogues: 대사별 이미지 배열 (index 순서대로)
+ * - characters: 레거시 호환용 (캐릭터별 첫 번째 이미지)
  *
  * @param {string} text - 파싱할 메시지 텍스트
  * @param {Function} sendResponse - 응답 콜백
@@ -197,50 +205,72 @@ async function handleParseAndFindMultiple(text, sendResponse) {
       return;
     }
 
-    // 8. 응답 변환 (LLM 선택 결과 → Extension 형식)
-    const characters = unifiedResponse.data.characters
-      .filter((char) => char.status === 'matched' && char.selectedImageId)
-      .map((char) => {
+    // 8. 응답 변환 (대사별 선택 결과 → Extension 형식)
+    // 새 형식: dialogues (대사별 이미지)
+    const apiDialogues = unifiedResponse.data.dialogues || unifiedResponse.data.characters || [];
+
+    const dialogues = apiDialogues
+      .filter((d) => d.status === 'matched' && d.selectedImageId)
+      .map((d) => {
         // 선택된 이미지 찾기
-        const folder = characterFolders.find((f) => f.name === char.folderName);
-        const selectedImage = folder?.images.find((img) => img._id === char.selectedImageId);
+        const folder = characterFolders.find((f) => f.name === d.folderName);
+        const selectedImage = folder?.images.find((img) => img._id === d.selectedImageId);
 
         if (!selectedImage) {
           return null;
         }
 
         return {
-          name: char.name,
+          dialogueIndex: d.dialogueIndex ?? 0,
+          name: d.name,
           folderId: folder._id,
-          images: [
-            {
-              imageUrl: selectedImage.imageUrl,
-              thumbnail: selectedImage.thumbnail,
-              score: char.selectedScore,
-              reason: char.selectionReason,
-              nsfwLevel: selectedImage.nsfwLevel,
-              tags: selectedImage.tags,
-            },
-          ],
+          imageUrl: selectedImage.imageUrl,
+          thumbnail: selectedImage.thumbnail,
+          score: d.selectedScore,
+          reason: d.selectionReason,
+          nsfwLevel: selectedImage.nsfwLevel,
+          tags: selectedImage.tags,
         };
       })
-      .filter((char) => char !== null);
+      .filter((d) => d !== null)
+      .sort((a, b) => a.dialogueIndex - b.dialogueIndex); // 대사 순서대로 정렬
 
-    if (characters.length === 0) {
+    if (dialogues.length === 0) {
       sendResponse({
         success: false,
-        error: 'No appropriate images found for any character',
+        error: 'No appropriate images found for any dialogue',
       });
       return;
     }
 
-    // 9. 결과 반환
+    // 레거시 호환: characters 배열 생성 (캐릭터별 첫 번째 이미지)
+    const characterMap = new Map();
+    for (const d of dialogues) {
+      if (!characterMap.has(d.name)) {
+        characterMap.set(d.name, {
+          name: d.name,
+          folderId: d.folderId,
+          images: [{
+            imageUrl: d.imageUrl,
+            thumbnail: d.thumbnail,
+            score: d.score,
+            reason: d.reason,
+            nsfwLevel: d.nsfwLevel,
+            tags: d.tags,
+          }],
+        });
+      }
+    }
+    const characters = Array.from(characterMap.values());
+
+    // 9. 결과 반환 (dialogues + characters 둘 다 포함)
     const result = {
       success: true,
-      characters,
-      unmatchedCharacters: unifiedResponse.data.characters
-        .filter((char) => char.status === 'unmatched')
-        .map((char) => char.name),
+      dialogues, // 새 형식: 대사별 이미지 (Handler에서 사용)
+      characters, // 레거시 호환: 캐릭터별 첫 번째 이미지
+      unmatchedDialogues: apiDialogues
+        .filter((d) => d.status === 'unmatched')
+        .map((d) => ({ index: d.dialogueIndex, name: d.name })),
     };
 
     // 캐시에 저장

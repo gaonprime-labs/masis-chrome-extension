@@ -194,7 +194,7 @@ async function processApiResponse(response, messageElement, handler, originalIma
 /**
  * 성공 응답 처리
  *
- * @param {Object} response - API 응답
+ * @param {Object} response - API 응답 (dialogues 또는 characters 포함)
  * @param {HTMLElement} messageElement - 메시지 요소
  * @param {Object} handler - Handler 인스턴스
  * @param {Element[]} originalImages - 원본 이미지 배열
@@ -203,15 +203,21 @@ async function processApiResponse(response, messageElement, handler, originalIma
 function handleSuccessResponse(response, messageElement, handler, originalImages) {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[HandleMessage] ✅ API SUCCESS - Processing completed');
-  console.log(`[HandleMessage] 👤 Found ${response.characters.length} characters with images`);
 
-  if (response.unmatchedCharacters && response.unmatchedCharacters.length > 0) {
-    console.log('[HandleMessage] ⚠️  Unmatched characters:', response.unmatchedCharacters.join(', '));
+  // 대사별 이미지 (새 형식) 또는 캐릭터별 이미지 (레거시)
+  const dialogues = response.dialogues || [];
+  const characters = response.characters || [];
+
+  console.log(`[HandleMessage] 💬 Found ${dialogues.length} dialogues with images`);
+  console.log(`[HandleMessage] 👤 Found ${characters.length} characters (legacy)`);
+
+  if (response.unmatchedDialogues && response.unmatchedDialogues.length > 0) {
+    console.log('[HandleMessage] ⚠️  Unmatched dialogues:', response.unmatchedDialogues.map((d) => `${d.index}:${d.name}`).join(', '));
   }
 
-  response.characters.forEach((char, idx) => {
-    const tagCount = char.images[0]?.tags?.length || 0;
-    console.log(`[HandleMessage] 📝 Character ${idx + 1}: ${char.name} (${char.images.length} images, ${tagCount} tags)`);
+  dialogues.forEach((d, idx) => {
+    const tagCount = d.tags?.length || 0;
+    console.log(`[HandleMessage] 📝 Dialogue ${d.dialogueIndex}: ${d.name} (${tagCount} tags, score: ${d.score}%)`);
   });
 
   // 로딩 플레이스홀더 제거 (항상)
@@ -221,9 +227,9 @@ function handleSuccessResponse(response, messageElement, handler, originalImages
     setTimeout(() => placeholder.remove(), 300);
   });
 
-  // 캐릭터가 없으면 원본 이미지만 숨기고 종료
-  if (!response.characters || response.characters.length === 0) {
-    console.log('[HandleMessage] ⚠️ No characters found, hiding original images anyway');
+  // 대사/캐릭터가 없으면 원본 이미지만 숨기고 종료
+  if (dialogues.length === 0 && characters.length === 0) {
+    console.log('[HandleMessage] ⚠️ No dialogues/characters found, hiding original images anyway');
     originalImages.forEach((img) => {
       if (img instanceof HTMLElement) {
         img.style.display = 'none';
@@ -234,9 +240,15 @@ function handleSuccessResponse(response, messageElement, handler, originalImages
     return;
   }
 
-  console.log('[HandleMessage] 🎨 Calling displayMultipleCharacters...');
-  displayMultipleCharacters(messageElement, response.characters, handler);
-  console.log('[HandleMessage] ✅ displayMultipleCharacters completed');
+  // 대사별 이미지가 있으면 대사별로 처리, 없으면 레거시 캐릭터별 처리
+  if (dialogues.length > 0) {
+    console.log('[HandleMessage] 🎨 Calling displayDialogues (new format)...');
+    displayDialogues(messageElement, dialogues, handler);
+  } else {
+    console.log('[HandleMessage] 🎨 Calling displayMultipleCharacters (legacy)...');
+    displayMultipleCharacters(messageElement, characters, handler);
+  }
+  console.log('[HandleMessage] ✅ Display completed');
 
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 }
@@ -271,14 +283,50 @@ function handleFailureResponse(response, messageElement, originalImages) {
 }
 
 /**
- * 여러 등장인물의 이미지를 표시 (Handler에 위임)
+ * 대사별 이미지를 표시 (Handler에 위임)
+ *
+ * @param {HTMLElement} messageElement - 메시지 요소
+ * @param {Array} dialogues - 대사별 이미지 배열 (dialogueIndex 순서)
+ * @param {Object} handler - Handler 인스턴스
+ */
+function displayDialogues(messageElement, dialogues, handler) {
+  console.log('[ImageDisplay] 💬 Displaying', dialogues.length, 'dialogue images');
+
+  if (!handler) {
+    console.error('[ImageDisplay] ❌ Handler not initialized, cannot display images');
+    return;
+  }
+
+  // Handler에 위임 (displayDialogues 메서드가 있으면 사용, 없으면 레거시 변환)
+  if (typeof handler.displayDialogues === 'function') {
+    handler.displayDialogues(messageElement, dialogues);
+  } else {
+    // 레거시 호환: dialogues → characters 형식으로 변환
+    const characters = dialogues.map((d) => ({
+      name: d.name,
+      folderId: d.folderId,
+      images: [{
+        imageUrl: d.imageUrl,
+        thumbnail: d.thumbnail,
+        score: d.score,
+        reason: d.reason,
+        nsfwLevel: d.nsfwLevel,
+        tags: d.tags,
+      }],
+    }));
+    handler.displayCharacters(messageElement, characters);
+  }
+}
+
+/**
+ * 여러 등장인물의 이미지를 표시 (레거시 - Handler에 위임)
  *
  * @param {HTMLElement} messageElement - 메시지 요소
  * @param {Array} characters - 인물 배열 (images 포함)
  * @param {Object} handler - Handler 인스턴스
  */
 function displayMultipleCharacters(messageElement, characters, handler) {
-  console.log('[ImageDisplay] 🎨 Displaying', characters.length, 'characters');
+  console.log('[ImageDisplay] 🎨 Displaying', characters.length, 'characters (legacy)');
 
   if (!handler) {
     console.error('[ImageDisplay] ❌ Handler not initialized, cannot display images');

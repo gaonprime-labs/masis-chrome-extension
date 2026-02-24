@@ -37,7 +37,100 @@ export class BabeChatHandler extends PlatformHandler {
 
   /**
    * @override
-   * BabeChat: 원본 이미지 1:1 교체
+   * BabeChat: 대사별 이미지 1:1 교체 (새 형식)
+   *
+   * 핵심 로직:
+   * - 원본 이미지가 N개이면 dialogues 배열의 N개 이미지를 순서대로 사용
+   * - 대사별로 다른 이미지를 선택 (같은 캐릭터도 대사마다 다른 이미지 가능)
+   * - dialogues 배열 순서 = 원본 이미지 교체 순서
+   */
+  displayDialogues(messageElement, dialogues) {
+    console.log('[BabeChatHandler] 💬 Displaying', dialogues.length, 'dialogue images');
+
+    // 1. 로딩 플레이스홀더 제거
+    const loadingPlaceholders = messageElement.querySelectorAll('.extension-loading-placeholder');
+    console.log(`[BabeChatHandler] 🧹 Removing ${loadingPlaceholders.length} loading placeholders`);
+    loadingPlaceholders.forEach((placeholder) => {
+      placeholder.style.opacity = '0';
+      setTimeout(() => placeholder.remove(), 300);
+    });
+
+    // 2. 원본 이미지 목록 가져오기
+    const originalImages = this.platform.getOriginalImagesInMessage(messageElement);
+    console.log(`[BabeChatHandler] 📸 Found ${originalImages.length} original images`);
+
+    if (originalImages.length === 0) {
+      console.log('[BabeChatHandler] ⚠️ No original images to replace');
+      return;
+    }
+
+    // 3. 대사별 이미지를 순서대로 추출
+    const dialogueImages = dialogues.map((d) => ({
+      imageUrl: d.imageUrl,
+      thumbnail: d.thumbnail,
+      name: d.name,
+      score: d.score,
+    }));
+
+    if (dialogueImages.length === 0) {
+      console.log('[BabeChatHandler] ⚠️ No dialogue images available, hiding originals anyway');
+      originalImages.forEach((img) => {
+        if (img instanceof HTMLElement) {
+          img.style.display = 'none';
+          img.dataset.extensionProcessed = 'true';
+        }
+      });
+      return;
+    }
+
+    console.log(`[BabeChatHandler] 🖼️ Available dialogue images: ${dialogueImages.length}`);
+
+    // 4. 원본 이미지 1:1 교체 (대사 순서대로)
+    let replacedCount = 0;
+    originalImages.forEach((img, index) => {
+      // 이미 처리된 이미지는 스킵
+      if (img.dataset && img.dataset.extensionProcessed === 'true') {
+        console.log(`[BabeChatHandler] ⏭️ Image ${index} already processed`);
+        return;
+      }
+
+      // 이미 Extension 이미지가 앞에 있으면 스킵
+      const prevElement = img.previousElementSibling;
+      if (prevElement && prevElement.classList && prevElement.classList.contains('extension-character-image')) {
+        console.log(`[BabeChatHandler] ⏭️ Image ${index} already has extension image`);
+        if (img instanceof HTMLElement) {
+          img.dataset.extensionProcessed = 'true';
+        }
+        return;
+      }
+
+      // 대사 순서대로 이미지 선택 (부족하면 라운드 로빈)
+      const imageData = dialogueImages[index % dialogueImages.length];
+
+      // Extension 이미지 생성 및 삽입
+      const imageContainer = this.createImageContainer(imageData);
+      imageContainer.classList.add('extension-character-image');
+
+      if (img.parentElement) {
+        img.parentElement.insertBefore(imageContainer, img);
+
+        // 원본 이미지 숨기기
+        if (img instanceof HTMLElement) {
+          img.style.display = 'none';
+          img.dataset.extensionProcessed = 'true';
+        }
+
+        replacedCount++;
+        console.log(`[BabeChatHandler] ✅ Replaced image ${index} with dialogue ${index % dialogueImages.length} ("${imageData.name}", score: ${imageData.score}%)`);
+      }
+    });
+
+    console.log(`[BabeChatHandler] ✅ Display complete: ${replacedCount}/${originalImages.length} images replaced`);
+  }
+
+  /**
+   * @override
+   * BabeChat: 원본 이미지 1:1 교체 (레거시 - 캐릭터별)
    *
    * 핵심 로직:
    * - 원본 이미지가 N개이면 extension 이미지도 N개 생성
@@ -45,7 +138,7 @@ export class BabeChatHandler extends PlatformHandler {
    * - 캐릭터가 M명이면 라운드 로빈으로 배분
    */
   displayCharacters(messageElement, characters) {
-    console.log('[BabeChatHandler] 🎨 Displaying', characters.length, 'characters');
+    console.log('[BabeChatHandler] 🎨 Displaying', characters.length, 'characters (legacy)');
 
     // 1. 로딩 플레이스홀더 제거
     const loadingPlaceholders = messageElement.querySelectorAll('.extension-loading-placeholder');
