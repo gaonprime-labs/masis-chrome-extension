@@ -74,22 +74,21 @@ export async function handleNewMessage(messageElement, platform, handler, retryC
 }
 
 /**
- * 메시지 요소 준비 (원본 이미지 숨김, 로딩 표시)
+ * 메시지 요소 준비 (로딩 표시)
+ *
+ * 참고: 원본 이미지 숨김은 각 Handler가 1:1 교체하면서 담당
  *
  * @param {HTMLElement} messageElement - 메시지 요소
  * @param {Element[]} originalImages - 원본 이미지 배열
  * @private
  */
 function prepareMessageElement(messageElement, originalImages) {
-  console.log('[HandleMessage] 🎬 Hiding original images and showing loading...');
+  console.log('[HandleMessage] 🎬 Preparing message element...');
 
-  // 1. 원본 이미지 즉시 숨김
-  hideOriginalImages(originalImages);
-
-  // 2. 로딩 인디케이터 삽입
+  // 1. 로딩 인디케이터 삽입
   insertLoadingPlaceholders(originalImages);
 
-  // 3. 기존 Extension 이미지 제거
+  // 2. 기존 Extension 이미지 제거
   cleanupExistingImages(messageElement);
 }
 
@@ -215,18 +214,29 @@ function handleSuccessResponse(response, messageElement, handler, originalImages
     console.log(`[HandleMessage] 📝 Character ${idx + 1}: ${char.name} (${char.images.length} images, ${tagCount} tags)`);
   });
 
+  // 로딩 플레이스홀더 제거 (항상)
+  const loadingPlaceholders = messageElement.querySelectorAll('.extension-loading-placeholder');
+  loadingPlaceholders.forEach((placeholder) => {
+    placeholder.style.opacity = '0';
+    setTimeout(() => placeholder.remove(), 300);
+  });
+
+  // 캐릭터가 없으면 원본 이미지만 숨기고 종료
+  if (!response.characters || response.characters.length === 0) {
+    console.log('[HandleMessage] ⚠️ No characters found, hiding original images anyway');
+    originalImages.forEach((img) => {
+      if (img instanceof HTMLElement) {
+        img.style.display = 'none';
+        img.dataset.extensionProcessed = 'true';
+      }
+    });
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return;
+  }
+
   console.log('[HandleMessage] 🎨 Calling displayMultipleCharacters...');
   displayMultipleCharacters(messageElement, response.characters, handler);
   console.log('[HandleMessage] ✅ displayMultipleCharacters completed');
-
-  // 참고: 로딩 플레이스홀더 제거는 각 Handler가 담당 (Shadow DOM/Light DOM 구분 필요)
-
-  // 원본 이미지 완전히 제거
-  originalImages.forEach((img) => {
-    if (img instanceof HTMLElement) {
-      img.remove();
-    }
-  });
 
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 }

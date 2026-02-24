@@ -107,6 +107,137 @@ class LunaTalkPlatform extends ChatPlatform {
   }
 }
 
+// BabeChat platform implementation
+// DOM 구조 (2026-02):
+// - 채팅 컨테이너: #messages-area
+// - AI 메시지: #messages-area > div.flex.flex-col:has(img[src*="cloudfront.net/characters"])
+// - 콘텐츠 이미지: itimg.kr, r2.dev 등 (아바타 제외)
+// - 네임태그: 텍스트 내 "캐릭터명 |" 패턴
+class BabeChatPlatform extends ChatPlatform {
+  getName() { return 'BabeChat'; }
+  getId() { return 'babechat'; }
+
+  // AI 메시지: 아바타 이미지가 있는 컨테이너 (flex-col 유무 상관없이)
+  getMessageSelector() {
+    return '#messages-area > div:has(img[src*="cloudfront.net/characters"])';
+  }
+
+  getNametagSelector() {
+    return 'div:has(img[src*="cloudfront.net/characters"])';
+  }
+
+  getImageContainerSelector() {
+    return [
+      'img[src*="itimg.kr"]:not(.extension-image):not(.extension-character-image)',
+      'img[src*="soda"]:not(.extension-image):not(.extension-character-image)',
+      'img[src*="dorua"]:not(.extension-image):not(.extension-character-image)',
+      'img[src*="ri4.org"]:not(.extension-image):not(.extension-character-image)',
+      'img[src*="r2.dev"]:not(.extension-image):not(.extension-character-image):not([class*="rounded-full"])',
+    ].join(', ');
+  }
+
+  getStreamingIndicatorSelector() {
+    return 'textarea[disabled], input[disabled], [class*="loading"], [class*="animate-pulse"], [class*="typing"]';
+  }
+
+  getParentLineSelector() {
+    return ':scope > div';
+  }
+
+  getOriginalImagesInMessage(messageElement) {
+    const images = [];
+
+    // 콘텐츠 이미지 호스트 목록
+    const contentImageSelectors = [
+      'img[src*="itimg.kr"]',
+      'img[src*="soda"]',
+      'img[src*="dorua"]',
+      'img[src*="ri4.org"]',
+    ];
+
+    // r2.dev는 아바타와 콘텐츠 모두 사용할 수 있으므로 별도 처리
+    const r2Images = messageElement.querySelectorAll(
+      'img[src*="r2.dev"]:not(.extension-image):not(.extension-character-image):not([class*="rounded-full"])'
+    );
+    images.push(...Array.from(r2Images));
+
+    // 다른 콘텐츠 이미지 호스트
+    contentImageSelectors.forEach((selector) => {
+      const foundImages = messageElement.querySelectorAll(
+        `${selector}:not(.extension-image):not(.extension-character-image)`
+      );
+      images.push(...Array.from(foundImages));
+    });
+
+    // 중복 제거 및 아바타/UI 필터링
+    const uniqueImages = [...new Set(images)].filter((img) => {
+      const src = img.getAttribute('src') || '';
+      const className = img.className || '';
+      const isAvatar = src.includes('cloudfront.net/characters') ||
+                       className.includes('rounded-full') ||
+                       className.includes('size-12');
+      const isUIIcon = src.includes('babechat.ai/assets');
+      return !isAvatar && !isUIIcon;
+    });
+
+    return uniqueImages;
+  }
+
+  extractMessageText(messageElement) {
+    const textContent = messageElement.textContent?.trim() || '';
+    // 마크다운 이미지 문법 제거
+    let cleanedText = textContent.replace(/!\[.*?\]\([^)]+\)/g, '');
+
+    // 메타데이터 블록 제거 (NOW📆로 시작하는 라인부터 끝까지)
+    const metaPatterns = [
+      /NOW📆:[\s\S]*$/,
+      /🏷️:[\s\S]*$/,
+      /INFO[\s\S]*$/,
+    ];
+
+    for (const pattern of metaPatterns) {
+      const match = cleanedText.match(pattern);
+      if (match) {
+        cleanedText = cleanedText.substring(0, match.index).trim();
+        break;
+      }
+    }
+
+    return cleanedText;
+  }
+
+  extractCharacterNames(messageElement) {
+    const text = messageElement.textContent || '';
+    const patterns = [
+      /[""]([^""]+)[""]\s*[|｜]/g,
+      /^([가-힣a-zA-Z0-9_\s]+)\s*[|｜]/gm,
+    ];
+
+    const names = [];
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const name = match[1].trim();
+        if (name && !names.includes(name) && name.length < 30) {
+          names.push(name);
+        }
+      }
+    }
+    return names;
+  }
+
+  extractMarkdownImageUrls(messageElement) {
+    const text = messageElement.textContent || '';
+    const pattern = /!\[.*?\]\((https?:\/\/[^\s)]+)\)/g;
+    const urls = [];
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      urls.push(match[1]);
+    }
+    return urls;
+  }
+}
+
 // Platform factory
 class PlatformFactory {
   static createPlatform(platformId) {
@@ -114,6 +245,7 @@ class PlatformFactory {
     switch (platformId) {
       case 'noahchat': return new NoahChatPlatform();
       case 'lunatalk': return new LunaTalkPlatform();
+      case 'babechat': return new BabeChatPlatform();
       default:
         console.warn('[PlatformFactory] Unsupported platform:', platformId, ', falling back to NoahChat');
         return new NoahChatPlatform();
@@ -122,7 +254,7 @@ class PlatformFactory {
 }
 
 // Global state
-let NoahChatHandler, LunaTalkHandler;
+let NoahChatHandler, LunaTalkHandler, BabeChatHandler;
 let currentHandler = null;
 let currentPlatform = new NoahChatPlatform();
 
@@ -141,6 +273,11 @@ function detectPlatformFromDomain() {
     return 'noahchat';
   }
 
+  if (hostname.includes('babechat') || hostname.includes('babe')) {
+    console.log('[Extension] Detected BabeChat domain');
+    return 'babechat';
+  }
+
   console.log('[Extension] Unknown domain, defaulting to NoahChat');
   return 'noahchat';
 }
@@ -148,7 +285,7 @@ function detectPlatformFromDomain() {
 // Create handler for platform
 function createHandler(platform) {
   const platformId = platform.getId();
-  if (!NoahChatHandler || !LunaTalkHandler) {
+  if (!NoahChatHandler || !LunaTalkHandler || !BabeChatHandler) {
     console.warn('[Extension] Handlers not loaded yet, using fallback');
     return null;
   }
@@ -160,6 +297,9 @@ function createHandler(platform) {
     case 'lunatalk':
       console.log('[Extension] Creating LunaTalkHandler');
       return new LunaTalkHandler(platform);
+    case 'babechat':
+      console.log('[Extension] Creating BabeChatHandler');
+      return new BabeChatHandler(platform);
     default:
       console.warn('[Extension] Unknown platform:', platformId, ', using NoahChatHandler');
       return new NoahChatHandler(platform);
@@ -201,6 +341,9 @@ async function initialize() {
 
     const lunaModule = await import(chrome.runtime.getURL('platforms/handlers/LunaTalkHandler.js'));
     LunaTalkHandler = lunaModule.LunaTalkHandler;
+
+    const babeModule = await import(chrome.runtime.getURL('platforms/handlers/BabeChatHandler.js'));
+    BabeChatHandler = babeModule.BabeChatHandler;
 
     console.log('[Extension] Handlers loaded successfully');
     initializePlatform();

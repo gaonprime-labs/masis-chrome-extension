@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "masis Image Extension",
-  "version": "2.2.0",
-  "description": "채팅 응답에서 다중 인물을 파싱하여 각 인물별로 매칭 이미지를 표시합니다 (NoahChat/LunaTalk 지원)",
+  "version": "2.3.0",
+  "description": "채팅 응답에서 다중 인물을 파싱하여 각 인물별로 매칭 이미지를 표시합니다 (NoahChat/LunaTalk/BabeChat 지원)",
   "permissions": [
     "storage",
     "activeTab",

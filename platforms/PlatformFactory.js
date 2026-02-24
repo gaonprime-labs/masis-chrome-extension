@@ -3,6 +3,7 @@
 
 import { NoahChatPlatform } from './NoahChatPlatform.js';
 import { LunaTalkPlatform } from './LunaTalkPlatform.js';
+import { BabeChatPlatform } from './BabeChatPlatform.js';
 
 /**
  * @fileoverview
@@ -43,7 +44,12 @@ export class PlatformFactory {
       {
         id: 'lunatalk',
         name: 'LunaTalk',
-        description: 'LunaTalk 플랫폼 (추후 구현)',
+        description: 'LunaTalk 플랫폼',
+      },
+      {
+        id: 'babechat',
+        name: 'BabeChat',
+        description: 'BabeChat 플랫폼',
       },
     ];
   }
@@ -64,6 +70,9 @@ export class PlatformFactory {
 
       case 'lunatalk':
         return new LunaTalkPlatform();
+
+      case 'babechat':
+        return new BabeChatPlatform();
 
       default:
         console.error(`[PlatformFactory] Unsupported platform: ${platformId}`);
