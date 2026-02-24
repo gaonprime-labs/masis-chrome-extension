@@ -2,14 +2,59 @@
 // @ts-check
 
 /**
+ * 캐릭터명 매핑 적용
+ *
+ * @param {string} characterName - 원본 캐릭터 이름
+ * @param {Object} mappings - 캐릭터명 매핑 객체
+ * @returns {string} 매핑된 캐릭터 이름 또는 원본 이름
+ */
+function applyMapping(characterName, mappings) {
+  if (!mappings || typeof mappings !== 'object') {
+    return characterName;
+  }
+
+  // 매핑 값 추출 헬퍼 (객체 또는 문자열 지원)
+  const extractFolderName = (value) => {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object' && value.folderName) return value.folderName;
+    return null;
+  };
+
+  // 1. 정확한 매핑 확인
+  if (mappings[characterName]) {
+    const folderName = extractFolderName(mappings[characterName]);
+    if (folderName) {
+      console.log(`[FolderMatcher] 🔗 Mapping: "${characterName}" → "${folderName}"`);
+      return folderName;
+    }
+  }
+
+  // 2. 대소문자 무시 매핑 확인
+  const lowerName = characterName.toLowerCase();
+  const mappedEntry = Object.entries(mappings).find(
+    ([key]) => key.toLowerCase() === lowerName
+  );
+  if (mappedEntry) {
+    const folderName = extractFolderName(mappedEntry[1]);
+    if (folderName) {
+      console.log(`[FolderMatcher] 🔗 Mapping (case-insensitive): "${characterName}" → "${folderName}"`);
+      return folderName;
+    }
+  }
+
+  return characterName;
+}
+
+/**
  * 등장인물 이름을 기반으로 폴더 검색 및 매칭
  *
  * @param {Character[]} characters - 파싱된 등장인물 배열
  * @param {string} projectUrl - 프로젝트 URL
  * @param {string} parentFolderId - 검색할 부모 폴더 ID
+ * @param {Object} mappings - 캐릭터명 매핑 객체 (선택사항)
  * @returns {Promise<Character[]>} 폴더 ID가 매칭된 등장인물 배열
  */
-export async function matchCharacterFolders(characters, projectUrl, parentFolderId) {
+export async function matchCharacterFolders(characters, projectUrl, parentFolderId, mappings = {}) {
   console.log('[FolderMatcher] 🔍 Matching folders for', characters.length, 'characters');
   console.log('[FolderMatcher] 📁 Parent folder:', parentFolderId);
 
@@ -17,7 +62,7 @@ export async function matchCharacterFolders(characters, projectUrl, parentFolder
   const matchedCharacters = await Promise.all(
     characters.map(async (character) => {
       try {
-        const folderId = await findFolderByName(character.name, projectUrl, parentFolderId);
+        const folderId = await findFolderByName(character.name, projectUrl, parentFolderId, mappings);
         return {
           ...character,
           folderId,
@@ -50,29 +95,33 @@ export async function matchCharacterFolders(characters, projectUrl, parentFolder
  * @param {string} characterName - 인물 이름
  * @param {string} projectUrl - 프로젝트 URL
  * @param {string} parentFolderId - 검색할 부모 폴더 ID
+ * @param {Object} mappings - 캐릭터명 매핑 객체 (선택사항)
  * @returns {Promise<string|null>} 폴더 ID 또는 null
  */
-async function findFolderByName(characterName, projectUrl, parentFolderId) {
+async function findFolderByName(characterName, projectUrl, parentFolderId, mappings = {}) {
   console.log(`[FolderMatcher] 🔍 Searching folder for: "${characterName}"`);
 
-  // 1. 정확한 이름으로 검색 (최우선)
-  const exactMatch = await searchFolder(characterName, projectUrl, parentFolderId);
+  // 0. 매핑 적용 (매핑이 있으면 먼저 적용)
+  const mappedName = applyMapping(characterName, mappings);
+
+  // 1. 정확한 이름으로 검색 (최우선) - 매핑된 이름 사용
+  const exactMatch = await searchFolder(mappedName, projectUrl, parentFolderId);
   if (exactMatch && exactMatch.length > 0) {
-    const bestMatch = selectBestMatch(exactMatch, characterName);
+    const bestMatch = selectBestMatch(exactMatch, mappedName);
     if (bestMatch) {
-      console.log(`[FolderMatcher] 🎯 Exact match for "${characterName}": "${bestMatch.name}" (${bestMatch._id})`);
+      console.log(`[FolderMatcher] 🎯 Exact match for "${characterName}" (mapped: "${mappedName}"): "${bestMatch.name}" (${bestMatch._id})`);
       return bestMatch._id;
     }
   }
 
   // 2. 정규화된 이름으로 재시도 (공백 제거, 소문자 변환)
-  const normalizedName = characterName.trim().toLowerCase().replace(/\s+/g, '');
-  if (normalizedName !== characterName.toLowerCase()) {
+  const normalizedName = mappedName.trim().toLowerCase().replace(/\s+/g, '');
+  if (normalizedName !== mappedName.toLowerCase()) {
     const normalizedMatch = await searchFolder(normalizedName, projectUrl, parentFolderId);
     if (normalizedMatch && normalizedMatch.length > 0) {
-      const bestMatch = selectBestMatch(normalizedMatch, characterName);
+      const bestMatch = selectBestMatch(normalizedMatch, mappedName);
       if (bestMatch) {
-        console.log(`[FolderMatcher] 🎯 Normalized match for "${characterName}": "${bestMatch.name}" (${bestMatch._id})`);
+        console.log(`[FolderMatcher] 🎯 Normalized match for "${characterName}" (mapped: "${mappedName}"): "${bestMatch.name}" (${bestMatch._id})`);
         return bestMatch._id;
       }
     }
@@ -80,7 +129,7 @@ async function findFolderByName(characterName, projectUrl, parentFolderId) {
 
   // 3. 단어 단위로 분리하여 부분 일치 시도 (긴 단어 우선)
   // 예: "엔비 스텔라" → ["스텔라", "엔비"] (길이순 정렬)
-  const words = characterName
+  const words = mappedName
     .split(/\s+/)
     .filter((word) => word.length >= 2) // 2글자 이상만
     .sort((a, b) => b.length - a.length); // 긴 단어 우선
@@ -90,15 +139,15 @@ async function findFolderByName(characterName, projectUrl, parentFolderId) {
   for (const word of words) {
     const partialMatch = await searchFolder(word, projectUrl, parentFolderId);
     if (partialMatch && partialMatch.length > 0) {
-      const bestMatch = selectBestMatch(partialMatch, characterName);
+      const bestMatch = selectBestMatch(partialMatch, mappedName);
       if (bestMatch) {
-        console.log(`[FolderMatcher] 🎯 Partial match for "${characterName}" (word: "${word}"): "${bestMatch.name}" (${bestMatch._id})`);
+        console.log(`[FolderMatcher] 🎯 Partial match for "${characterName}" (mapped: "${mappedName}", word: "${word}"): "${bestMatch.name}" (${bestMatch._id})`);
         return bestMatch._id;
       }
     }
   }
 
-  console.log(`[FolderMatcher] ❌ No match found for "${characterName}"`);
+  console.log(`[FolderMatcher] ❌ No match found for "${characterName}" (mapped: "${mappedName}")`);
   return null;
 }
 

@@ -62,6 +62,7 @@ async function handleParseAndFindMultiple(text, sendResponse) {
       'enabled',
       'folderId', // 부모 폴더 ID
       'folderTagsCache', // 폴더별 태그 캐시
+      'characterMappings', // 캐릭터명 매핑
     ]);
 
     if (!config.enabled) {
@@ -183,6 +184,7 @@ async function handleParseAndFindMultiple(text, sendResponse) {
           text,
           characterFolders,
           availableTags,
+          characterMappings: config.characterMappings || {},
         }),
       });
 
@@ -282,7 +284,7 @@ async function handleParseAndFindLegacy(text, sendResponse) {
  */
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local') {
-    if (changes.projectUrl) {
+    if (changes.projectUrl || changes.characterMappings) {
       parseCache.clear();
     }
   }
