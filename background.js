@@ -9,13 +9,12 @@ const parseCache = new LRUCache(100);
 
 /**
  * 프로젝트 URL 상수
- * 개발 환경: http://localhost:3000
- * 프로덕션: https://ark.gaonprime.com
+ * 오픈소스 배포용 - 항상 프로덕션 서버 사용
  */
+const PROJECT_URL = 'https://masis.gaonprime.com';
+
 function getProjectUrl() {
-  // 로컬 개발 시에는 localhost 사용, 배포 시에는 프로덕션 URL 사용
-  const isDevelopment = !('update_url' in chrome.runtime.getManifest());
-  return isDevelopment ? 'http://localhost:3000' : 'https://ark.gaonprime.com';
+  return PROJECT_URL;
 }
 
 /**
