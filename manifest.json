@@ -10,7 +10,7 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://ark.gaonprime.com/*",
+    "https://masis.gaonprime.com/*",
     "https://openrouter.ai/*"
   ],
   "oauth2": {

@@ -1,14 +1,17 @@
 // popup.js - 익스텐션 설정 UI
 
 /**
- * 프로젝트 URL 상수
- * 개발 환경: http://localhost:3000
- * 프로덕션: https://masis.gaonprime.com
+ * 개발 모드 설정
+ * true: localhost:3000 사용
+ * false: 프로덕션 서버 사용
  */
+const DEV_MODE = false;
+
+const PROJECT_URL_DEV = 'http://localhost:3000';
+const PROJECT_URL_PROD = 'https://masis.gaonprime.com';
+
 function getProjectUrl() {
-  // 로컬 개발 시에는 localhost 사용, 배포 시에는 프로덕션 URL 사용
-  const isDevelopment = !('update_url' in chrome.runtime.getManifest());
-  return isDevelopment ? 'http://localhost:3000' : 'https://masis.gaonprime.com';
+  return DEV_MODE ? PROJECT_URL_DEV : PROJECT_URL_PROD;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
