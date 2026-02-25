@@ -226,7 +226,7 @@ async function searchFolder(name, projectUrl, parentId) {
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('text/html')) {
       console.error('[FolderMatcher] ❌ Received HTML response - authentication failed');
-      throw new Error('Authentication failed - please login to localhost:3000');
+      throw new Error('Authentication failed - please login to masis.gaonprime.com');
     }
 
     if (!response.ok) {

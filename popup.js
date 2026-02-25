@@ -3,12 +3,12 @@
 /**
  * 프로젝트 URL 상수
  * 개발 환경: http://localhost:3000
- * 프로덕션: https://ark.gaonprime.com
+ * 프로덕션: https://masis.gaonprime.com
  */
 function getProjectUrl() {
   // 로컬 개발 시에는 localhost 사용, 배포 시에는 프로덕션 URL 사용
   const isDevelopment = !('update_url' in chrome.runtime.getManifest());
-  return isDevelopment ? 'http://localhost:3000' : 'https://ark.gaonprime.com';
+  return isDevelopment ? 'http://localhost:3000' : 'https://masis.gaonprime.com';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
